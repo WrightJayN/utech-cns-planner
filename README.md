@@ -72,7 +72,8 @@ utech-cns-planner/
 │   ├── full-view.png
 │   ├── prereq-lock.png
 │   ├── credits-sidebar.png
-│   └── infra-track.png
+│   ├── infra-track.png
+|   └── cyber-track.png
 └── README.md
 ```
 
