@@ -387,6 +387,15 @@
     border-color: var(--border);
   }
 
+  .course-card.elective {
+    border-style: dashed;
+    border-color: var(--elective-border);
+    background: var(--elective);
+    opacity: 1;
+  }
+
+  /* State colours come after .elective so a completed / in-progress
+     elective shows its state rather than staying purple. */
   .course-card.completed {
     background: var(--completed);
     border-color: var(--completed-border);
@@ -396,13 +405,6 @@
   .course-card.in-progress {
     background: var(--in-progress);
     border-color: var(--in-progress-border);
-    opacity: 1;
-  }
-
-  .course-card.elective {
-    border-style: dashed;
-    border-color: var(--elective-border);
-    background: var(--elective);
     opacity: 1;
   }
 
@@ -425,9 +427,9 @@
     color: var(--text-dim);
   }
 
+  .course-card.elective .course-id { color: var(--elective-text); }
   .course-card.completed .course-id { color: var(--completed-text); }
   .course-card.in-progress .course-id { color: var(--in-progress-text); }
-  .course-card.elective .course-id { color: var(--elective-text); }
 
   .course-status-icon {
     font-size: 0.75rem;
@@ -752,11 +754,12 @@ function safeParseProgress(raw) {
 }
 
 // ============================================================
-// SECURITY: Sanitise student info inputs on read — strip tags.
+// SECURITY: Sanitise student info — strip angle brackets, cap length.
+// Values are only ever written back via input.value (never innerHTML).
 // ============================================================
 function sanitiseText(str) {
   if (typeof str !== 'string') return '';
-  return str.replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 200);
+  return str.replace(/[<>]/g, '').slice(0, 200);
 }
 
 const ELECTIVES_SCIT = [
@@ -1010,14 +1013,44 @@ const STATUS_LABELS = { 0: 'Unlocked', 1: 'In Progress', 2: 'Completed' };
 
 // ============================================================
 // STORAGE
+// localStorage can be blocked (site data disabled, sandboxed iframe,
+// some private modes) or full; touching it then throws. Fall back to an
+// in-memory store so the planner still works for this visit.
 // ============================================================
 
+const memoryStore = new Map();
+let storageWarned = false;
+
+function warnStorageUnavailable() {
+  if (storageWarned) return;
+  storageWarned = true;
+  setTimeout(() => showToast('⚠ Browser storage is blocked — progress lasts only until you close this tab. Use Export to keep it.'), 300);
+}
+
+function storeGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    warnStorageUnavailable();
+    return memoryStore.has(key) ? memoryStore.get(key) : null;
+  }
+}
+
+function storeSet(key, value) {
+  memoryStore.set(key, value);
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    warnStorageUnavailable();
+  }
+}
+
 function saveProgress() {
-  localStorage.setItem('cns_progress_' + track, JSON.stringify(progress));
+  storeSet('cns_progress_' + track, JSON.stringify(progress));
 }
 
 function loadProgress() {
-  const raw = localStorage.getItem('cns_progress_' + track);
+  const raw = storeGet('cns_progress_' + track);
   progress = safeParseProgress(raw);
 }
 
@@ -1026,27 +1059,30 @@ function saveStudentInfo() {
   const name = sanitiseText(document.getElementById('student-name').value);
   const sid  = sanitiseText(document.getElementById('student-id').value);
   const date = sanitiseText(document.getElementById('start-date').value);
-  localStorage.setItem('cns_student_name', name);
-  localStorage.setItem('cns_student_id', sid);
-  localStorage.setItem('cns_start_date', date);
+  storeSet('cns_student_name', name);
+  storeSet('cns_student_id', sid);
+  storeSet('cns_start_date', date);
 }
 
 function loadStudentInfo() {
-  document.getElementById('student-name').value = localStorage.getItem('cns_student_name') || '';
-  document.getElementById('student-id').value = localStorage.getItem('cns_student_id') || '';
-  document.getElementById('start-date').value = localStorage.getItem('cns_start_date') || '';
+  document.getElementById('student-name').value = storeGet('cns_student_name') || '';
+  document.getElementById('student-id').value = storeGet('cns_student_id') || '';
+  document.getElementById('start-date').value = storeGet('cns_start_date') || '';
 }
 
 // ============================================================
 // LOGIC
 // ============================================================
 
+// A course only counts as completed while its own prereqs are still met,
+// so un-completing a prereq re-locks everything downstream of it.
 function isCompleted(id) {
-  return progress[id] === STATUS.COMPLETED;
+  if (progress[id] !== STATUS.COMPLETED) return false;
+  const course = getCourseById(id, track);
+  return !course || isUnlocked(course);
 }
 
 function isUnlocked(course) {
-  if (course.elective) return true;
   if (!course.deps || course.deps.length === 0) return true;
   return course.deps.every(dep => isCompleted(dep));
 }
@@ -1108,10 +1144,6 @@ function render() {
   const trackData = TRACKS[track];
   let html = '';
 
-  const all = getAllCourses();
-  const completed = all.filter(c => isCompleted(c.id)).length;
-  const pct = Math.round((completed / all.length) * 100);
-
   trackData.years.forEach(yearData => {
     const yearCompleted = yearData.semesters.reduce((acc, s) =>
       acc + s.courses.filter(c => isCompleted(c.id)).length, 0);
@@ -1137,7 +1169,7 @@ function render() {
       semData.courses.forEach(course => {
         const status = getStatus(course);
         const isLocked = status === 'locked';
-        const icon = progress[course.id] !== undefined ? STATUS_ICONS[progress[course.id]] : (isLocked ? '🔒' : '');
+        const icon = isLocked ? '🔒' : STATUS_ICONS[progress[course.id] || 0];
         const prereqStr = course.deps && course.deps.length ? course.deps.join(', ') : 'None';
         const noteStr = course.note ? ` · ${course.note}` : '';
 
@@ -1170,11 +1202,12 @@ function render() {
 
   container.innerHTML = html;
 
-  // Update stats
+  // Update stats — header and sidebar both measure credits so the two bars always agree.
   const { earned, total } = computeCredits();
+  const pct = total ? Math.round((earned / total) * 100) : 0;
   document.getElementById('credits-earned').textContent = earned;
   document.getElementById('credits-total').textContent = total;
-  document.getElementById('credits-bar').style.width = total ? `${Math.round((earned / total) * 100)}%` : '0%';
+  document.getElementById('credits-bar').style.width = pct + '%';
   document.getElementById('header-progress-bar').style.width = pct + '%';
   document.getElementById('header-progress-text').textContent = pct + '%';
 }
@@ -1272,7 +1305,7 @@ function setTrack(t) {
   loadProgress();
   document.getElementById('btn-cyber').classList.toggle('active', track === 'cyber');
   document.getElementById('btn-infra').classList.toggle('active', track === 'infra');
-  localStorage.setItem('cns_track', track);
+  storeSet('cns_track', track);
   render();
 }
 
@@ -1298,11 +1331,11 @@ function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     track,
-    progress_cyber: safeParseProgress(localStorage.getItem('cns_progress_cyber')),
-    progress_infra: safeParseProgress(localStorage.getItem('cns_progress_infra')),
-    student_name: localStorage.getItem('cns_student_name') || '',
-    student_id:   localStorage.getItem('cns_student_id')   || '',
-    start_date:   localStorage.getItem('cns_start_date')   || '',
+    progress_cyber: safeParseProgress(storeGet('cns_progress_cyber')),
+    progress_infra: safeParseProgress(storeGet('cns_progress_infra')),
+    student_name: storeGet('cns_student_name') || '',
+    student_id:   storeGet('cns_student_id')   || '',
+    start_date:   storeGet('cns_start_date')   || '',
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -1326,12 +1359,12 @@ function importData(event) {
       const raw = JSON.parse(e.target.result);
       // Validate shape
       if (!raw || typeof raw !== 'object' || raw.version !== 1) throw new Error('Invalid format');
-      if (raw.progress_cyber) localStorage.setItem('cns_progress_cyber', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_cyber))));
-      if (raw.progress_infra) localStorage.setItem('cns_progress_infra', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_infra))));
-      if (raw.student_name !== undefined) localStorage.setItem('cns_student_name', sanitiseText(raw.student_name));
-      if (raw.student_id   !== undefined) localStorage.setItem('cns_student_id',   sanitiseText(raw.student_id));
-      if (raw.start_date   !== undefined) localStorage.setItem('cns_start_date',   sanitiseText(raw.start_date));
-      if (raw.track) localStorage.setItem('cns_track', safeTrack(raw.track));
+      if (raw.progress_cyber) storeSet('cns_progress_cyber', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_cyber))));
+      if (raw.progress_infra) storeSet('cns_progress_infra', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_infra))));
+      if (raw.student_name !== undefined) storeSet('cns_student_name', sanitiseText(raw.student_name));
+      if (raw.student_id   !== undefined) storeSet('cns_student_id',   sanitiseText(raw.student_id));
+      if (raw.start_date   !== undefined) storeSet('cns_start_date',   sanitiseText(raw.start_date));
+      if (raw.track) storeSet('cns_track', safeTrack(raw.track));
       loadStudentInfo();
       setTrack(safeTrack(raw.track || track));
       showToast('✓ Data restored from backup.');
@@ -1344,7 +1377,7 @@ function importData(event) {
   reader.readAsText(file);
 }
 
-track = safeTrack(localStorage.getItem('cns_track') || 'cyber');
+track = safeTrack(storeGet('cns_track') || 'cyber');
 loadProgress();
 loadStudentInfo();
 setTrack(track);
