@@ -467,6 +467,22 @@
   }
 
   .elective-pick:focus { border-color: var(--accent); }
+
+  .elective-credits {
+    background: var(--surface2);
+    border: 1px solid var(--elective-border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    padding: 0.1rem 0.25rem;
+    cursor: pointer;
+    outline: none;
+    position: relative;
+    z-index: 1;
+  }
+
+  .elective-credits:focus { border-color: var(--accent); }
   .elective-pick.unchosen { color: var(--text-muted); }
 
   /* ---- STATE CYCLE INDICATOR ---- */
@@ -932,6 +948,7 @@ let track = 'cyber';
 // status: 0=locked/unlocked, 1=in-progress, 2=completed
 let progress = {}; // { courseId: 0|1|2 }
 let electivePicks = {}; // { slotId: electiveId } for SCIT Elective slots
+let electiveCredits = {}; // { slotId: 3|4 } — overrides the default elective credits
 
 const STATUS = { UNLOCKED: 0, IN_PROGRESS: 1, COMPLETED: 2 };
 const STATUS_ICONS = { 0: '', 1: '◑', 2: '✓' };
@@ -974,12 +991,30 @@ function storeSet(key, value) {
 function saveProgress() {
   storeSet('cns_progress_' + track, JSON.stringify(progress));
   storeSet('cns_electives_' + track, JSON.stringify(electivePicks));
+  storeSet('cns_elective_credits_' + track, JSON.stringify(electiveCredits));
 }
 
 function loadProgress() {
   const raw = storeGet('cns_progress_' + track);
   progress = safeParseProgress(raw);
   electivePicks = safeParsePicks(storeGet('cns_electives_' + track), track);
+  electiveCredits = safeParseCredits(storeGet('cns_elective_credits_' + track), track);
+}
+
+// SECURITY: credit overrides must name an elective slot on that track and be 3 or 4.
+function safeParseCredits(raw, trackKey) {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const clean = {};
+    for (const [slot, credits] of Object.entries(parsed)) {
+      const course = getCourseById(slot, trackKey);
+      if (course && course.elective && [3, 4].includes(credits)) clean[slot] = credits;
+    }
+    return clean;
+  } catch {
+    return {};
+  }
 }
 
 // SECURITY: picks must name a pickable slot and an elective offered on that track.
@@ -1035,7 +1070,10 @@ function depsOf(course) {
   return pick ? pick.deps : (course.deps || []);
 }
 
+// Elective credits: the student's 3/4 override, else the picked course's
+// credits, else the slot default.
 function creditsOf(course) {
+  if (course.elective && electiveCredits[course.id]) return electiveCredits[course.id];
   const pick = pickOf(course);
   return pick ? pick.credits : (course.credits || 0);
 }
@@ -1078,8 +1116,36 @@ function setElectivePick(slotId, electiveId) {
     electivePicks[slotId] = pick.id;
     showToast(`${course.title}: ${pick.code || pick.id} ${pick.title} (${pick.credits} cr)`);
   }
+  // A new course brings its own credits, so drop any earlier override.
+  delete electiveCredits[slotId];
   saveProgress();
   render();
+}
+
+const ELECTIVE_CREDIT_OPTIONS = [3, 4];
+
+function setElectiveCredits(slotId, value) {
+  const course = getCourseById(slotId, track);
+  const credits = Number(value);
+  if (!course || !course.elective || !ELECTIVE_CREDIT_OPTIONS.includes(credits)) return;
+  const pick = pickOf(course);
+  const natural = pick ? pick.credits : course.credits;
+  if (credits === natural) delete electiveCredits[slotId];
+  else electiveCredits[slotId] = credits;
+  saveProgress();
+  render();
+  showToast(`${codeOf(course)}: ${credits} credits`);
+}
+
+function renderCreditPicker(course) {
+  const cur = creditsOf(course);
+  const opts = ELECTIVE_CREDIT_OPTIONS
+    .map(n => `<option value="${n}"${n === cur ? ' selected' : ''}>${n} cr</option>`)
+    .join('');
+  return `<select class="elective-credits"
+      onclick="event.stopPropagation()"
+      onchange="setElectiveCredits('${esc(course.id)}', this.value)"
+      aria-label="Credits for this elective">${opts}</select>`;
 }
 
 function getAllCourses() {
@@ -1210,7 +1276,7 @@ function render() {
             <div class="course-name">${esc(course.title)}</div>
             ${course.list ? renderElectivePicker(course, pick) : ''}
             <div class="course-footer">
-              <span class="course-credits">${esc(creditsOf(course))} cr${esc(noteStr)}</span>
+              <span class="course-credits">${course.elective ? renderCreditPicker(course) : esc(creditsOf(course)) + ' cr'}${esc(noteStr)}</span>
               ${deps.length ? `<span class="course-prereqs">← ${esc(prereqStr)}</span>` : ''}
             </div>
           </div>
@@ -1340,6 +1406,7 @@ function confirmReset() {
   if (confirm('Reset all progress and elective choices for this track? This cannot be undone.')) {
     progress = {};
     electivePicks = {};
+    electiveCredits = {};
     saveProgress();
     render();
     showToast('Progress reset.');
@@ -1359,6 +1426,8 @@ function exportData() {
     progress_infra: safeParseProgress(storeGet('cns_progress_infra')),
     electives_cyber: safeParsePicks(storeGet('cns_electives_cyber'), 'cyber'),
     electives_infra: safeParsePicks(storeGet('cns_electives_infra'), 'infra'),
+    elective_credits_cyber: safeParseCredits(storeGet('cns_elective_credits_cyber'), 'cyber'),
+    elective_credits_infra: safeParseCredits(storeGet('cns_elective_credits_infra'), 'infra'),
     student_name: storeGet('cns_student_name') || '',
     student_id:   storeGet('cns_student_id')   || '',
     start_date:   storeGet('cns_start_date')   || '',
@@ -1390,6 +1459,8 @@ function importData(event) {
       // Older backups have no elective picks; leave any current picks alone then.
       if (raw.electives_cyber) storeSet('cns_electives_cyber', JSON.stringify(safeParsePicks(raw.electives_cyber, 'cyber')));
       if (raw.electives_infra) storeSet('cns_electives_infra', JSON.stringify(safeParsePicks(raw.electives_infra, 'infra')));
+      if (raw.elective_credits_cyber) storeSet('cns_elective_credits_cyber', JSON.stringify(safeParseCredits(raw.elective_credits_cyber, 'cyber')));
+      if (raw.elective_credits_infra) storeSet('cns_elective_credits_infra', JSON.stringify(safeParseCredits(raw.elective_credits_infra, 'infra')));
       if (raw.student_name !== undefined) storeSet('cns_student_name', sanitiseText(raw.student_name));
       if (raw.student_id   !== undefined) storeSet('cns_student_id',   sanitiseText(raw.student_id));
       if (raw.start_date   !== undefined) storeSet('cns_start_date',   sanitiseText(raw.start_date));

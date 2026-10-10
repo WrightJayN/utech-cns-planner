@@ -23,6 +23,7 @@ Credits and overall percentage update in real time.
 | 🎓 Two tracks | Cyber Security & Infrastructure |
 | 🔒 Prereq locking | Courses unlock only when dependencies are met |
 | 🎯 Elective picker | Choose each SCIT Elective from a dropdown; its credits and prereqs apply automatically |
+| 🎚 Elective credits | Every elective has a 3 / 4 credit dropdown — defaults to the chosen course's credits, change it if your timetable differs |
 | 📊 Live credit counter | Tracks earned vs. total credits |
 | 💾 Offline-first | All data in `localStorage` — works without internet |
 | 📤 Export / Import | JSON backup so you can move data between devices |
