@@ -449,6 +449,26 @@
     text-overflow: ellipsis;
   }
 
+  /* ---- ELECTIVE PICKER ---- */
+  .elective-pick {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--elective-border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    padding: 0.25rem 0.35rem;
+    cursor: pointer;
+    outline: none;
+    text-overflow: ellipsis;
+    position: relative;
+    z-index: 1;
+  }
+
+  .elective-pick:focus { border-color: var(--accent); }
+  .elective-pick.unchosen { color: var(--text-muted); }
+
   /* ---- STATE CYCLE INDICATOR ---- */
   .course-card::after {
     content: '';
@@ -661,6 +681,21 @@ function sanitiseText(str) {
   return str.replace(/[<>]/g, '').slice(0, 200);
 }
 
+// ============================================================
+// SCIT ELECTIVES — chosen from a dropdown on each SCIT Elective card.
+// A picked course brings its own credits and prerequisites to the slot.
+// `track` limits a course to one programme variant; `code` is what the
+// card shows when the id has to be unique (CIT4032 differs per track).
+// ============================================================
+const ELECTIVES_SCIT = [
+  { id: "CIT2011", title: "Web Programming", deps: ["CNS1003"], credits: 3 },
+  { id: "CIT3012", title: "Advanced Databases", deps: ["CMP2018"], credits: 4 },
+  { id: "CIT4031", title: "IS Auditing", deps: ["CNS1003"], credits: 4 },
+  { id: "CIT4032_CS", code: "CIT4032", title: "IS Planning & Management", deps: ["CIT3021"], credits: 4, track: "cyber" },
+  { id: "CIT4032_IN", code: "CIT4032", title: "IS Strategy, Planning & Management", deps: ["CIT3021"], credits: 4, track: "infra" },
+  { id: "CIT3013", title: "Database Administration", deps: ["CIT3012"], credits: 4 },
+];
+
 const TRACKS = {
   cyber: {
     name: "Cyber Security",
@@ -740,7 +775,7 @@ const TRACKS = {
               { id: "CNS3004", title: "Enterprise Security", deps: ["CIT4020"], credits: 3 },
               { id: "CNS3005", title: "Ethical Hacking", deps: ["CIT4020"], credits: 3 },
               { id: "ENT3001", title: "Entrepreneurship", deps: [], credits: 3 },
-              { id: "SCIT_ELEC_3", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_3", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
             ]
           }
         ]
@@ -756,7 +791,7 @@ const TRACKS = {
               { id: "CNS4001", title: "Security Analysis & Response", deps: ["CIT4020"], credits: 3 },
               { id: "CMP3040", title: "Computer Forensics", deps: [], credits: 3 },
               { id: "PRJ4020", title: "Major Project", deps: ["RES3024"], credits: 3 },
-              { id: "SCIT_ELEC_4A", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_4A", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
             ]
           },
           {
@@ -766,7 +801,7 @@ const TRACKS = {
               { id: "CNS4004", title: "Intelligence Gathering & Analysis", deps: ["CIT4020"], credits: 3 },
               { id: "CIT4036", title: "Professional Development Seminar", deps: [], credits: 1, note: "Level 4" },
               { id: "HUM3010", title: "Professional Ethics & Legal Implications of Computing", deps: ["CNS1003", "COM1024"], credits: 3 },
-              { id: "SCIT_ELEC_4B", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_4B", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
               { id: "UNIV_ELEC_4", title: "University Elective", deps: [], credits: 3, elective: true },
             ]
           }
@@ -853,7 +888,7 @@ const TRACKS = {
               { id: "CNS3009", title: "Infrastructure System: Security & Management", deps: ["CNS3001"], credits: 3 },
               { id: "CNS3005", title: "Ethical Hacking", deps: ["CIT4020"], credits: 3 },
               { id: "ENT3001", title: "Entrepreneurship", deps: [], credits: 3 },
-              { id: "SCIT_ELEC_3", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_3", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
             ]
           }
         ]
@@ -869,7 +904,7 @@ const TRACKS = {
               { id: "CNS4005", title: "Infrastructure Systems: Scaling & Automation", deps: ["CNS2002"], credits: 3 },
               { id: "CMP3040", title: "Computer Forensics", deps: [], credits: 3 },
               { id: "PRJ4020", title: "Major Project", deps: ["RES3024"], credits: 3 },
-              { id: "SCIT_ELEC_4A", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_4A", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
             ]
           },
           {
@@ -879,7 +914,7 @@ const TRACKS = {
               { id: "CNS4008", title: "Infrastructure Networking & Development", deps: ["CIT3017"], credits: 3 },
               { id: "CIT4036", title: "Professional Development Seminar", deps: [], credits: 1, note: "Level 4" },
               { id: "HUM3010", title: "Professional Ethics & Legal Implications of Computing", deps: ["CNS1003", "COM1024"], credits: 3 },
-              { id: "SCIT_ELEC_4B", title: "SCIT Elective", deps: [], credits: 3, elective: true },
+              { id: "SCIT_ELEC_4B", title: "SCIT Elective", deps: [], credits: 3, elective: true, list: "scit" },
               { id: "UNIV_ELEC_4", title: "University Elective", deps: [], credits: 3, elective: true },
             ]
           }
@@ -896,6 +931,7 @@ const TRACKS = {
 let track = 'cyber';
 // status: 0=locked/unlocked, 1=in-progress, 2=completed
 let progress = {}; // { courseId: 0|1|2 }
+let electivePicks = {}; // { slotId: electiveId } for SCIT Elective slots
 
 const STATUS = { UNLOCKED: 0, IN_PROGRESS: 1, COMPLETED: 2 };
 const STATUS_ICONS = { 0: '', 1: '◑', 2: '✓' };
@@ -937,11 +973,31 @@ function storeSet(key, value) {
 
 function saveProgress() {
   storeSet('cns_progress_' + track, JSON.stringify(progress));
+  storeSet('cns_electives_' + track, JSON.stringify(electivePicks));
 }
 
 function loadProgress() {
   const raw = storeGet('cns_progress_' + track);
   progress = safeParseProgress(raw);
+  electivePicks = safeParsePicks(storeGet('cns_electives_' + track), track);
+}
+
+// SECURITY: picks must name a pickable slot and an elective offered on that track.
+function safeParsePicks(raw, trackKey) {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const clean = {};
+    const options = electiveOptions(trackKey);
+    for (const [slot, id] of Object.entries(parsed)) {
+      const course = getCourseById(slot, trackKey);
+      const unused = !Object.values(clean).includes(id);
+      if (course && course.list && options.some(o => o.id === id) && unused) clean[slot] = id;
+    }
+    return clean;
+  } catch {
+    return {};
+  }
 }
 
 function saveStudentInfo() {
@@ -964,17 +1020,66 @@ function loadStudentInfo() {
 // LOGIC
 // ============================================================
 
+function electiveOptions(trackKey) {
+  return ELECTIVES_SCIT.filter(e => !e.track || e.track === trackKey);
+}
+
+// The elective picked for a SCIT Elective slot, or null.
+function pickOf(course) {
+  if (!course.list) return null;
+  return electiveOptions(track).find(e => e.id === electivePicks[course.id]) || null;
+}
+
+function depsOf(course) {
+  const pick = pickOf(course);
+  return pick ? pick.deps : (course.deps || []);
+}
+
+function creditsOf(course) {
+  const pick = pickOf(course);
+  return pick ? pick.credits : (course.credits || 0);
+}
+
+function codeOf(course) {
+  const pick = pickOf(course);
+  return pick ? (pick.code || pick.id) : course.id;
+}
+
 // A course only counts as completed while its own prereqs are still met,
 // so un-completing a prereq re-locks everything downstream of it.
+// An elective (e.g. CIT3012) counts as completed when the slot it was
+// picked in is completed.
 function isCompleted(id) {
-  if (progress[id] !== STATUS.COMPLETED) return false;
   const course = getCourseById(id, track);
-  return !course || isUnlocked(course);
+  if (course) return progress[id] === STATUS.COMPLETED && isUnlocked(course);
+  return getAllCourses().some(c => {
+    const pick = pickOf(c);
+    return pick && pick.id === id && isCompleted(c.id);
+  });
 }
 
 function isUnlocked(course) {
-  if (!course.deps || course.deps.length === 0) return true;
-  return course.deps.every(dep => isCompleted(dep));
+  return depsOf(course).every(dep => isCompleted(dep));
+}
+
+// Electives already picked in another slot, so one can't be counted twice.
+function takenElsewhere(slotId) {
+  return new Set(Object.entries(electivePicks).filter(([s]) => s !== slotId).map(([, id]) => id));
+}
+
+function setElectivePick(slotId, electiveId) {
+  const course = getCourseById(slotId, track);
+  if (!course || !course.list) return;
+  if (electiveId === '') {
+    delete electivePicks[slotId];
+  } else {
+    const pick = electiveOptions(track).find(e => e.id === electiveId);
+    if (!pick || takenElsewhere(slotId).has(pick.id)) return;
+    electivePicks[slotId] = pick.id;
+    showToast(`${course.title}: ${pick.code || pick.id} ${pick.title} (${pick.credits} cr)`);
+  }
+  saveProgress();
+  render();
 }
 
 function getAllCourses() {
@@ -993,8 +1098,12 @@ function getStatus(course) {
 
 function cycleStatus(courseId, course) {
   if (!isUnlocked(course)) {
-    const missing = course.deps.filter(d => !isCompleted(d));
+    const missing = depsOf(course).filter(d => !isCompleted(d));
     showToast(`🔒 Requires: ${missing.join(', ')}`);
+    return;
+  }
+  if (course.list && !pickOf(course) && !progress[courseId]) {
+    showToast('Pick a course for this SCIT Elective first.');
     return;
   }
   const cur = progress[courseId] || STATUS.UNLOCKED;
@@ -1002,15 +1111,15 @@ function cycleStatus(courseId, course) {
   saveProgress();
   render();
   const label = STATUS_LABELS[progress[courseId]];
-  showToast(`${course.id}: ${label}`);
+  showToast(`${codeOf(course)}: ${label}`);
 }
 
 function computeCredits() {
   const all = getAllCourses();
   let earned = 0, total = 0;
   all.forEach(c => {
-    total += c.credits || 0;
-    if (isCompleted(c.id)) earned += c.credits || 0;
+    total += creditsOf(c);
+    if (isCompleted(c.id)) earned += creditsOf(c);
   });
   return { earned, total };
 }
@@ -1027,6 +1136,24 @@ function esc(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Dropdown of SCIT electives for a slot. Courses picked in another slot
+// are disabled. Clicks are stopped so choosing doesn't cycle the card.
+function renderElectivePicker(course, pick) {
+  const taken = takenElsewhere(course.id);
+  const options = electiveOptions(track).map(e => {
+    const needs = e.deps.length ? ` · needs ${e.deps.join(', ')}` : '';
+    const used = taken.has(e.id);
+    return `<option value="${esc(e.id)}"${pick && pick.id === e.id ? ' selected' : ''}${used ? ' disabled' : ''}>`
+      + `${esc(e.code || e.id)} — ${esc(e.title)} (${esc(e.credits)} cr)${esc(needs)}${used ? ' (chosen in another slot)' : ''}</option>`;
+  }).join('');
+  return `<select class="elective-pick${pick ? '' : ' unchosen'}"
+      onclick="event.stopPropagation()"
+      onchange="setElectivePick('${esc(course.id)}', this.value)"
+      aria-label="Choose a course for this SCIT Elective">
+      <option value=""${pick ? '' : ' selected'}>— Choose course —</option>${options}
+    </select>`;
 }
 
 function render() {
@@ -1060,25 +1187,31 @@ function render() {
         const status = getStatus(course);
         const isLocked = status === 'locked';
         const icon = isLocked ? '🔒' : STATUS_ICONS[progress[course.id] || 0];
-        const prereqStr = course.deps && course.deps.length ? course.deps.join(', ') : 'None';
+        const deps = depsOf(course);
+        const prereqStr = deps.length ? deps.join(', ') : 'None';
         const noteStr = course.note ? ` · ${course.note}` : '';
+        const pick = pickOf(course);
+        const tipTitle = course.list
+          ? (pick ? `${course.title}: ${pick.title}` : `${course.title} (pick a course on the card)`)
+          : course.title;
 
         html += `
           <div
             class="course-card ${esc(status)} ${course.elective ? 'elective' : ''}"
             onclick="cycleStatus('${esc(course.id)}', getCourseById('${esc(course.id)}', '${esc(track)}'))"
-            onmouseenter="showTooltip(event, '${esc(course.id)}', '${esc(course.title)}', '${esc(prereqStr)}', ${isLocked})"
+            onmouseenter="showTooltip(event, '${esc(course.id)}', '${esc(tipTitle)}', '${esc(prereqStr)}', ${isLocked}, '${esc(codeOf(course))}')"
             onmouseleave="hideTooltip()"
             data-id="${esc(course.id)}"
           >
             <div class="course-header">
-              <span class="course-id">${esc(course.id)}</span>
+              <span class="course-id">${esc(codeOf(course))}</span>
               <span class="course-status-icon">${esc(icon)}</span>
             </div>
             <div class="course-name">${esc(course.title)}</div>
+            ${course.list ? renderElectivePicker(course, pick) : ''}
             <div class="course-footer">
-              <span class="course-credits">${esc(course.credits)} cr${esc(noteStr)}</span>
-              ${course.deps && course.deps.length ? `<span class="course-prereqs">← ${esc(prereqStr)}</span>` : ''}
+              <span class="course-credits">${esc(creditsOf(course))} cr${esc(noteStr)}</span>
+              ${deps.length ? `<span class="course-prereqs">← ${esc(prereqStr)}</span>` : ''}
             </div>
           </div>
         `;
@@ -1116,7 +1249,7 @@ function getCourseById(id, trackKey) {
 // TOOLTIP
 // ============================================================
 
-function showTooltip(e, id, title, prereqs, locked) {
+function showTooltip(e, id, title, prereqs, locked, code) {
   const tt = document.getElementById('tooltip');
   const statusMap = { 0: 'Available', 1: 'In Progress', 2: 'Completed' };
   const cur = progress[id] || 0;
@@ -1127,7 +1260,7 @@ function showTooltip(e, id, title, prereqs, locked) {
 
   const titleEl = document.createElement('div');
   titleEl.className = 'tooltip-title';
-  titleEl.textContent = id;
+  titleEl.textContent = code || id;
   tt.appendChild(titleEl);
 
   const nameEl = document.createElement('div');
@@ -1204,8 +1337,9 @@ function setTrack(t) {
 // ============================================================
 
 function confirmReset() {
-  if (confirm('Reset all progress for this track? This cannot be undone.')) {
+  if (confirm('Reset all progress and elective choices for this track? This cannot be undone.')) {
     progress = {};
+    electivePicks = {};
     saveProgress();
     render();
     showToast('Progress reset.');
@@ -1223,6 +1357,8 @@ function exportData() {
     track,
     progress_cyber: safeParseProgress(storeGet('cns_progress_cyber')),
     progress_infra: safeParseProgress(storeGet('cns_progress_infra')),
+    electives_cyber: safeParsePicks(storeGet('cns_electives_cyber'), 'cyber'),
+    electives_infra: safeParsePicks(storeGet('cns_electives_infra'), 'infra'),
     student_name: storeGet('cns_student_name') || '',
     student_id:   storeGet('cns_student_id')   || '',
     start_date:   storeGet('cns_start_date')   || '',
@@ -1251,6 +1387,9 @@ function importData(event) {
       if (!raw || typeof raw !== 'object' || raw.version !== 1) throw new Error('Invalid format');
       if (raw.progress_cyber) storeSet('cns_progress_cyber', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_cyber))));
       if (raw.progress_infra) storeSet('cns_progress_infra', JSON.stringify(safeParseProgress(JSON.stringify(raw.progress_infra))));
+      // Older backups have no elective picks; leave any current picks alone then.
+      if (raw.electives_cyber) storeSet('cns_electives_cyber', JSON.stringify(safeParsePicks(raw.electives_cyber, 'cyber')));
+      if (raw.electives_infra) storeSet('cns_electives_infra', JSON.stringify(safeParsePicks(raw.electives_infra, 'infra')));
       if (raw.student_name !== undefined) storeSet('cns_student_name', sanitiseText(raw.student_name));
       if (raw.student_id   !== undefined) storeSet('cns_student_id',   sanitiseText(raw.student_id));
       if (raw.start_date   !== undefined) storeSet('cns_start_date',   sanitiseText(raw.start_date));

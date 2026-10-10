@@ -22,6 +22,7 @@ Credits and overall percentage update in real time.
 |---|---|
 | 🎓 Two tracks | Cyber Security & Infrastructure |
 | 🔒 Prereq locking | Courses unlock only when dependencies are met |
+| 🎯 Elective picker | Choose each SCIT Elective from a dropdown; its credits and prereqs apply automatically |
 | 📊 Live credit counter | Tracks earned vs. total credits |
 | 💾 Offline-first | All data in `localStorage` — works without internet |
 | 📤 Export / Import | JSON backup so you can move data between devices |
@@ -47,7 +48,8 @@ Credits and overall percentage update in real time.
 1. **Open** `index.html` in any browser — no install needed.
 2. **Select your track** (Cyber Security or Infrastructure) in the top-right.
 3. **Click a course** to mark it In Progress, then Completed.
-4. **Export** your progress via the sidebar to back it up or move to another device.
+4. **Pick your SCIT Electives** from the dropdown on each elective card.
+5. **Export** your progress via the sidebar to back it up or move to another device.
 
 ---
 
